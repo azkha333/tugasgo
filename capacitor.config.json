@@ -1,0 +1,11 @@
+{
+  "appId": "cloud.rsby.tugasgo",
+  "appName": "TugasGo",
+  "webDir": "www",
+  "server": {
+    "url": "https://demo-tugasgo.rsby.cloud/",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "backgroundColor": "#0b3d25"
+}

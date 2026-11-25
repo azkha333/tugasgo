@@ -1,0 +1,12 @@
+{
+  "name": "tugasgo-apk",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "analyze": "node tools/analyze.mjs" },
+  "dependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/cli": "^6.1.0",
+    "@capacitor/core": "^6.1.0"
+  },
+  "devDependencies": { "playwright": "^1.48.0" }
+}

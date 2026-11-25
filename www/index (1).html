@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KirimKu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#eef2f5;--card:#fff;--ink:#10243a;--mut:#5c6f82;--line:#d8e0e7;--pri:#0f2a43;--on:#fff;--acc:#f2b705;--ok:#1b7f4b;--bad:#b3261e;--info:#1c5fa8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1520;--card:#122131;--ink:#e6edf4;--mut:#93a5b8;--line:#243649;--pri:#f2b705;--on:#10243a;--ok:#4fc283;--bad:#ff8a80;--info:#6fb0f2;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1520;--card:#122131;--ink:#e6edf4;--mut:#93a5b8;--line:#243649;--pri:#f2b705;--on:#10243a;--ok:#4fc283;--bad:#ff8a80;--info:#6fb0f2;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 "Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px}
+h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.02em}
+h2{font-size:16px;font-weight:800;margin:0 0 10px}
+.mut{color:var(--mut);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:4px 0 10px}
+label{font-weight:600;font-size:13px}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;background:var(--pri);color:var(--on)}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button.bad{background:var(--bad);color:#fff}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1 1 auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:22px;font-weight:800}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.s-baru{color:var(--mut)}.s-ditugaskan,.s-diambil,.s-diantar{color:var(--info)}.s-terkirim{color:var(--ok)}.s-gagal{color:var(--bad)}
+.tl{list-style:none;margin:8px 0 0;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.tl li{margin:0 0 8px;padding-left:8px;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1}
+.hint{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--mut)}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+var SB="https://twlwwghdimaypygwlgbg.supabase.co";
+var KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3bHd3Z2hkaW1heXB5Z3dsZ2JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1OTQxNTYsImV4cCI6MjExMTE3MDE1Nn0.D81E1_zCRuuWuxGKq3ccqqhFVe4vrr6dClv-Ou-tE1I";
+var ST={baru:"Menunggu driver",ditugaskan:"Ditugaskan",diambil:"Paket diambil",diantar:"Dalam perjalanan",terkirim:"Terkirim",gagal:"Gagal kirim"};
+var NEXT={ditugaskan:["diambil","Ambil paket"],diambil:["diantar","Mulai antar"],diantar:["terkirim","Tandai terkirim"]};
+var REASONS=["Penerima tidak ada","Alamat tidak ditemukan","Paket ditolak","Kendala kendaraan"];
+var S=ld("kk_session"),me=null,tasks=[],drivers=[],view="login",msg="",found=null,busy=false,booting=!!S;
+function ld(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function put(k,v){try{if(v)localStorage.setItem(k,JSON.stringify(v));else localStorage.removeItem(k)}catch(e){}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function val(id){var e=document.getElementById(id);return e?e.value:""}
+function fmt(iso){return new Date(iso).toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+async function raw(path,o,tok){o=o||{};var h={apikey:KEY,"Content-Type":"application/json",Authorization:"Bearer "+(tok||KEY)};for(var k in (o.headers||{}))h[k]=o.headers[k];
+var r=await fetch(SB+path,{method:o.method||"GET",headers:h,body:o.body?JSON.stringify(o.body):undefined});var t=await r.text(),d=null;try{d=t?JSON.parse(t):null}catch(e){}return{ok:r.ok,status:r.status,data:d}}
+async function refresh(){var r=await raw("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:{refresh_token:S.refresh_token}});if(!r.ok)return false;S=r.data;put("kk_session",S);return true}
+async function api(path,o){var r=await raw(path,o,S&&S.access_token);
+if(r.status===401&&S&&S.refresh_token){if(await refresh())r=await raw(path,o,S.access_token);else{logout();throw new Error("Sesi habis. Silakan masuk lagi.")}}
+if(!r.ok)throw new Error((r.data&&(r.data.message||r.data.msg||r.data.error_description))||"Terjadi kesalahan ("+r.status+")");return r.data}
+async function refreshData(){tasks=await api("/rest/v1/tasks?select=*,task_history(id,status,note,created_at)&order=created_at.desc");
+tasks.forEach(function(t){t.task_history.sort(function(a,b){return a.id-b.id})});
+if(me.role==="admin")drivers=await api("/rest/v1/profiles?role=eq.driver&select=id,name&order=name")}
+async function boot(){var p=await api("/rest/v1/profiles?id=eq."+S.user.id+"&select=name,role");if(!p||!p.length)throw new Error("Akun belum punya peran. Hubungi admin.");me=p[0];view=me.role;await refreshData()}
+async function login(){var u=val("u").trim().toLowerCase(),p=val("p");if(!u||!p){msg="Isi username dan password.";render();return}
+var email=u.indexOf("@")>-1?u:u+"@kirimku.test";busy=true;msg="";render();
+try{var r=await raw("/auth/v1/token?grant_type=password",{method:"POST",body:{email:email,password:p}});if(!r.ok)throw new Error("Username atau password salah.");S=r.data;put("kk_session",S);await boot()}
+catch(e){msg=e.message;S=null;me=null;put("kk_session",null);view="login"}busy=false;render()}
+function logout(){S=null;me=null;tasks=[];found=null;msg="";put("kk_session",null);view="login";render()}
+async function act(fn){try{msg="";await fn();await refreshData()}catch(e){msg=e.message}render()}
+function addTask(){var to=val("nto").trim(),ad=val("nad").trim(),nt=val("nnt").trim();if(!to||!ad){msg="Nama penerima dan alamat wajib diisi.";render();return}
+act(function(){return api("/rest/v1/tasks",{method:"POST",headers:{Prefer:"return=minimal"},body:{recipient:to,address:ad,note:nt}})})}
+function assign(id){var v=val("d-"+id);if(!v){msg="Pilih driver dulu.";render();return}act(function(){return api("/rest/v1/rpc/assign_task",{method:"POST",body:{p_id:id,p_driver:v}})})}
+function step(id,s){act(function(){return api("/rest/v1/rpc/set_status",{method:"POST",body:{p_id:id,p_status:s,p_note:""}})})}
+function fail(id){var n=val("r-"+id);act(function(){return api("/rest/v1/rpc/set_status",{method:"POST",body:{p_id:id,p_status:"gagal",p_note:n}})})}
+async function track(){var r=val("resi").trim();if(!r){msg="Isi nomor resi.";render();return}
+try{found=await api("/rest/v1/rpc/lacak",{method:"POST",body:{p_resi:r}});msg=found?"":"Nomor resi tidak ditemukan. Periksa lagi penulisannya."}catch(e){found=null;msg=e.message}render()}
+function theme(){var r=document.documentElement,d=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme:dark)").matches);r.setAttribute("data-theme",d?"light":"dark")}
+function badge(s){return '<span class="badge s-'+s+'">'+ST[s]+'</span>'}
+function tl(h){return '<ul class="tl">'+h.map(function(x){return '<li><b>'+ST[x.status]+'</b><br><span class="mut">'+esc(fmt(x.created_at||x.at))+(x.note?' · '+esc(x.note):'')+'</span></li>'}).join("")+'</ul>'}
+function drvName(id){var d=drivers.filter(function(a){return a.id===id})[0];return d?d.name:(id?"Ditugaskan":"Belum ada")}
+function head(sub){return '<header class="top"><div><h1>KirimKu</h1><div class="mut">'+sub+'</div></div><div class="row" style="flex:none"><button class="ghost" onclick="theme()">Tema</button>'+(me?'<button class="ghost" onclick="logout()">Keluar</button>':'')+'</div></header><div class="err">'+esc(msg)+'</div>'}
+function vLogin(){return head("Pengiriman dan tugas lapangan")+
+'<div class="card"><h2>Masuk</h2><label>Username</label><input id="u" autocomplete="username" autocapitalize="none"><label>Password</label><input id="p" type="password" autocomplete="current-password"><button style="width:100%" onclick="login()"'+(busy?' disabled':'')+'>'+(busy?'Memeriksa...':'Masuk')+'</button></div>'+
+'<div class="card"><h2>Lacak paket</h2><p class="mut">Pelanggan tidak perlu masuk. Cukup isi nomor resi.</p><input id="resi" placeholder="Contoh: KK100001"><button style="width:100%" onclick="track()">Lacak</button>'+
+(found?'<div style="margin-top:12px"><b>'+esc(found.id)+'</b> '+badge(found.status)+'<div class="mut">Untuk '+esc(found.recipient)+'</div>'+tl(found.history)+'</div>':'')+'</div>'}
+function vAdmin(){var c=function(f){return tasks.filter(f).length};
+var h=head("Halo, "+esc(me.name))+'<div class="stats"><div class="stat"><b>'+c(function(t){return t.status==="baru"})+'</b>Belum ditugaskan</div><div class="stat"><b>'+c(function(t){return["ditugaskan","diambil","diantar"].indexOf(t.status)>-1})+'</b>Berjalan</div><div class="stat"><b>'+c(function(t){return t.status==="terkirim"})+'</b>Terkirim</div><div class="stat"><b>'+c(function(t){return t.status==="gagal"})+'</b>Gagal</div></div>'+
+'<div class="card"><h2>Buat tugas baru</h2><label>Nama penerima</label><input id="nto"><label>Alamat</label><input id="nad"><label>Catatan untuk driver</label><input id="nnt"><button style="width:100%" onclick="addTask()">Simpan tugas</button></div><h2>Semua tugas</h2>';
+if(!tasks.length)h+='<div class="card mut">Belum ada tugas. Buat tugas pertama di atas.</div>';
+tasks.forEach(function(t){var opts='<option value="">Pilih driver</option>'+drivers.map(function(a){return '<option value="'+esc(a.id)+'"'+(a.id===t.driver_id?' selected':'')+'>'+esc(a.name)+'</option>'}).join("");
+h+='<div class="card"><div class="row"><b>'+esc(t.id)+'</b>'+badge(t.status)+'</div><div>'+esc(t.recipient)+'</div><div class="mut">'+esc(t.address)+(t.note?' · '+esc(t.note):'')+'</div><div class="mut">Driver: '+esc(drvName(t.driver_id))+'</div>'+
+(t.status==="baru"||t.status==="ditugaskan"?'<div class="row" style="margin-top:8px"><select id="d-'+esc(t.id)+'" style="margin:0">'+opts+'</select><button onclick="assign(\''+esc(t.id)+'\')">Tugaskan</button></div>':'')+
+'<details style="margin-top:8px"><summary class="mut">Riwayat status</summary>'+tl(t.task_history)+'</details></div>'});return h}
+function vDriver(){var h=head("Halo, "+esc(me.name))+'<h2>Tugas saya ('+tasks.length+')</h2>';
+if(!tasks.length)h+='<div class="card mut">Belum ada tugas untuk kamu. Tunggu admin menugaskan paket.</div>';
+tasks.forEach(function(t){var id=esc(t.id);h+='<div class="card"><div class="row"><b>'+id+'</b>'+badge(t.status)+'</div><div>'+esc(t.recipient)+'</div><div class="mut">'+esc(t.address)+'</div>'+(t.note?'<div class="hint" style="margin-top:6px">Catatan: '+esc(t.note)+'</div>':'');
+if(NEXT[t.status])h+='<div class="row" style="margin-top:10px"><button onclick="step(\''+id+'\',\''+NEXT[t.status][0]+'\')">'+NEXT[t.status][1]+'</button></div>';
+if(t.status==="diantar")h+='<div class="row" style="margin-top:8px"><select id="r-'+id+'" style="margin:0">'+REASONS.map(function(r){return '<option>'+r+'</option>'}).join("")+'</select><button class="bad" onclick="fail(\''+id+'\')">Gagal kirim</button></div>';
+h+='<details style="margin-top:8px"><summary class="mut">Riwayat status</summary>'+tl(t.task_history)+'</details></div>'});return h}
+function render(){var a=document.getElementById("app");
+if(booting){a.innerHTML=head("Memuat...");return}
+a.innerHTML=view==="admin"?vAdmin():view==="driver"?vDriver():vLogin()}
+setInterval(function(){if(!me||busy)return;var a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName))return;refreshData().then(render).catch(function(){})},15000);
+render();
+if(S){boot().catch(function(e){msg=e.message;S=null;me=null;put("kk_session",null);view="login"}).then(function(){booting=false;render()})}
+</script>
+</body>
+</html>
